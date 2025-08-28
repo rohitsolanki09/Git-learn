@@ -1,0 +1,49 @@
+name: Security Checks
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  security:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.x'
+
+      # ✅ Dependency Vulnerability Scan
+      - name: Install pip-audit
+        run: pip install pip-audit
+
+      - name: Run pip-audit
+        run: pip-audit
+
+      # ✅ Secrets Scan (API keys, passwords)
+      - name: Run Gitleaks
+        uses: gitleaks/gitleaks-action@v2
+        with:
+          args: detect --source . --verbose
+
+      # ✅ Docker Image Scan with Trivy
+      - name: Install Trivy
+        run: |
+          sudo apt-get install -y wget apt-transport-https gnupg lsb-release
+          wget -qO - https://aquasecurity.github.io/trivy-repo/deb/public.key | sudo apt-key add -
+          echo deb https://aquasecurity.github.io/trivy-repo/deb $(lsb_release -sc) main | sudo tee /etc/apt/sources.list.d/trivy.list
+          sudo apt-get update
+          sudo apt-get install -y trivy
+
+      - name: Run Trivy on Dockerfile
+        run: trivy fs .
+
+      # ✅ Custom Security Scan (Your Python Script)
+      - name: Run Custom XSS & SQLi Scanner
+        run: python security_scan.py
